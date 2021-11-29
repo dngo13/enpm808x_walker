@@ -24,13 +24,72 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.  
  */
 
+/**
+ * @file walker.cpp
+ * @author Diane Ngo (dngo13)
+ * @brief Source file for walker
+ * @version 0.1
+ * @date 2021-11-28
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/LaserScan.h"
+#include "../include/walker.hpp"
+
+Walker::Walker() {
+    vel_pub = nh.advertise<geometry_msgs::Twist> ("/cmd_vel", 1000);
+    scan_sub = nh.subscribe<sensor_msgs::LaserScan> ("/scan", 500,
+        &Walker::ObstacleCheck, this);
+    obstacle_detected = false;
+}
+
+Walker::~Walker() {
+    msg.linear.x = 0;
+    msg.angular.z = 0;
+    vel_pub.publish(msg);
+}
+
+void Walker::ObstacleCheck(const sensor_msgs::LaserScan::ConstPtr& msg) {
+    double min_dist = 0.15;
+    for (int i = 0; i < msg->ranges.size(); i++) {
+        if (msg->ranges[i] > min_dist) {
+            min_dist = msg->ranges[i];
+        }
+    }
+    front_dist = min_dist;
+}
+
+void Walker::RunWalker() {
+    scan_sub = nh.subscribe<sensor_msgs::LaserScan> ("/scan", 1000,
+        &Walker::ObstacleCheck, this);
+    if (front_dist > 0.3) {
+        ROS_INFO("Front is clear. ");
+        msg.linear.x = 0.3;
+        msg.angular.z = 0;
+    } else {
+        ROS_WARN("Obstacle detected, turning. ");
+        obstacle_detected = true;
+        msg.linear.x = 0;
+        msg.angular.z = 0.3;
+    }
+    vel_pub.publish(msg);
+}
 
 int main(int argc, char **argv) {
     ros::init(argc, argv, "walker");
     ros::NodeHandle nh;
+    Walker walker;
+    ros::Rate loop_rate(10.0);
+
+    while (ros::ok()) {
+        geometry_msgs::Twist msg;
+        walker.RunWalker();
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
 
     return 0;
 }
