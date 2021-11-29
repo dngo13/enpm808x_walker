@@ -1,0 +1,19 @@
+<launch>
+    <arg name="record_bag" default="false" />
+    <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_world.launch"> </include>
+
+    <node 
+        pkg="enpm808x_walker" 
+        name="walker" 
+        type="enpm808x_walker" 
+        output="screen" 
+    />
+
+    <node
+        pkg="rosbag"
+        name="record"
+        type="record"
+        args="-a -O $(find enpm808x_walker)/results/rosbag_record -x /camera/(.*)"
+        if="$(arg record_bag)"
+    />
+</launch>
